@@ -29,6 +29,12 @@ jobs:
     - name: Package Extension
       run: vsce package
 
+    - name: Upload VSIX Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: vscode-extension
+        path: '*.vsix'
+
     #- name: Publish Extension
     #  env:
     #    VSCODE_TOKEN: ${{ secrets.VSCODE_MARKET_PUBLISH_TOKEN }}
