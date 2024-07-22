@@ -1,8 +1,12 @@
 {
-  "name": "inju.spine-player-vscode",
+  "name": "spine-player-vscode",
   "displayName": "Spine Player for VSCode",
   "description": "Play back Spine animations inside VSCode",
   "version": "1.0.0",
+  "author": {
+    "name": "Indrek Juhani"
+  },
+  "license": "MIT",
   "engines": {
     "vscode": "^1.75.0"
   },
