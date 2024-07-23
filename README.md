@@ -5,10 +5,20 @@ The Spine Player VSCode extension allows you to embed and play Spine animations 
 ## Features
 
 - **Embed Spine Animations**: Display Spine animations directly in a VSCode webview.
-- **Supports Atlas and JSON**: Load Spine animations using atlas and JSON files.
-- **Full-Screen Mode**: Automatically adjust the Spine Player to fit the full width and height of the container.
 
-## Installation
+## Usage
+
+1. **Click on an .atlas file in Explorer**
+   - Ensure the same folder has corresponding .json and .png files.
+
+2. **Run Spine Animation Command**
+   - Right click on the .atlas file and select \`Play Spine Animation\`
+
+3. **Interact with the Animation**
+   - The Spine Player will display your animation in a webview panel.
+   - Use the player controls to select an animation and control it.
+
+## Development/debugging
 
 1. **Clone the Repository**
    \`\`\`bash
@@ -24,21 +34,9 @@ The Spine Player VSCode extension allows you to embed and play Spine animations 
    npm run compile
    \`\`\`
 4. **Launch the Extension**
-   - Open the extension folder in VSCode.
+   - Open "Run & Debug"
+   - Choose "Run Extension"
    - Press \`F5\` to open a new VSCode window with the extension loaded.
-
-## Usage
-
-1. **Open Command Palette**
-   - Press \`Ctrl+Shift+P\` (Windows/Linux) or \`Cmd+Shift+P\` (Mac) to open the Command Palette.
-
-2. **Run Spine Animation Command**
-   - Type \`Play Spine Animation\` and press \`Enter\`.
-   - Select the atlas and JSON files for your Spine animation.
-
-3. **Interact with the Animation**
-   - The Spine Player will display your animation in a webview panel.
-   - Use the player controls to play, pause, and interact with the animation.
 
 ## Contribution
 
@@ -69,9 +67,4 @@ The Spine Player VSCode extension allows you to embed and play Spine animations 
 ## License
 
 This project is licensed under the MIT License.
-"""
 
-with open("README.md", "w") as file:
-    file.write(markdown_content)
-
-print("README.md file has been generated successfully.")
