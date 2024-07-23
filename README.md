@@ -68,3 +68,6 @@ The Spine Player VSCode extension allows you to embed and play Spine animations 
 
 This project is licensed under the MIT License.
 
+## Contributors
+
+ChatGPT create skeleton of plugin.
