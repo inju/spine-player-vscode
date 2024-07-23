@@ -10,18 +10,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v2
 
     - name: Set up Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v2
       with:
-        node-version: '18' # Specify the Node.js version
+        node-version: '14'
 
     - name: Install dependencies
       run: npm install
 
     - name: Install vsce
       run: npm install -g vsce
+
+    - name: Extract version from tag
+      id: extract_version
+      run: echo "::set-output name=VERSION::${GITHUB_REF/refs\/tags\/v/}"
+
+    - name: Update package.json with version
+      run: |
+        VERSION=$(echo "${{ steps.extract_version.outputs.VERSION }}")
+        echo "Updating package.json with version $VERSION"
+        jq --arg version "$VERSION" '.version = $version' package.json > package.tmp.json
+        mv package.tmp.json package.json
 
     - name: Lint and build
       run: npm run compile # Ensure this script is defined in your package.json
@@ -30,12 +41,12 @@ jobs:
       run: vsce package
 
     - name: Upload VSIX Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v2
       with:
         name: vscode-extension
         path: '*.vsix'
 
-    #- name: Publish Extension
-    #  env:
-    #    VSCODE_TOKEN: ${{ secrets.VSCODE_MARKET_PUBLISH_TOKEN }}
-    #  run: vsce publish -p $VSCODE_TOKEN
+    - name: Publish Extension
+      env:
+        VSCODE_TOKEN: ${{ secrets.VSCODE_MARKET_PUBLISH_TOKEN }}
+      run: vsce publish -p $VSCODE_TOKEN
