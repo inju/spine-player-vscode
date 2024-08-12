@@ -25,7 +25,7 @@ jobs:
 
     - name: Extract version from tag
       id: extract_version
-      run: echo "::set-output name=VERSION::${GITHUB_REF/refs\/tags\/v/}"
+      run: echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_OUTPUT
 
     - name: Update package.json with version
       run: |
