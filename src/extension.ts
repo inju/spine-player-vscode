@@ -3,7 +3,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getWebviewContent } from './webviewContent';
 
-let currentPanel: vscode.WebviewPanel | undefined = undefined;
+const directoryEntriesCache = new Map<string, Promise<string[]>>();
+let currentPanel: vscode.WebviewPanel | undefined;
+let openRequestSequence = 0;
 
 type SpineAssetBundle = {
   jsonFilePath: string;
@@ -12,10 +14,42 @@ type SpineAssetBundle = {
   initialAnimation?: string;
 };
 
-function getCandidateAtlasFiles(jsonFilePath: string): string[] {
+async function getDirectoryEntries(directory: string): Promise<string[]> {
+  let entries = directoryEntriesCache.get(directory);
+  if (!entries) {
+    entries = fs.promises.readdir(directory);
+    directoryEntriesCache.set(directory, entries);
+    const clearCache = () => {
+      setTimeout(() => {
+        if (directoryEntriesCache.get(directory) === entries) {
+          directoryEntriesCache.delete(directory);
+        }
+      }, 1000);
+    };
+    void entries.then(clearCache, clearCache);
+  }
+
+  try {
+    return await entries;
+  } catch (error) {
+    directoryEntriesCache.delete(directory);
+    throw error;
+  }
+}
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.promises.access(filePath, fs.constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function getCandidateAtlasFiles(jsonFilePath: string): Promise<string[]> {
   const directory = path.dirname(jsonFilePath);
   const fileName = path.basename(jsonFilePath, path.extname(jsonFilePath));
-  const entries = fs.existsSync(directory) ? fs.readdirSync(directory) : [];
+  const entries = await getDirectoryEntries(directory);
   const exactAtlasEntry = entries.find((entry) => entry.toLowerCase() === `${fileName.toLowerCase()}.atlas`);
 
   if (exactAtlasEntry) {
@@ -28,15 +62,14 @@ function getCandidateAtlasFiles(jsonFilePath: string): string[] {
     .sort();
 }
 
-function getAtlasImagePaths(atlasFilePath: string): string[] {
-  const atlasContent = fs.readFileSync(atlasFilePath, 'utf8');
+async function getAtlasImagePaths(atlasFilePath: string, atlasContent: string): Promise<string[]> {
   const atlasDirectory = path.dirname(atlasFilePath);
   const imagePaths = new Set<string>();
 
   for (const line of atlasContent.split(/\r?\n/)) {
     const trimmed = line.trim();
 
-    if (!trimmed || trimmed.startsWith('#') || trimmed.includes(':')) {
+    if (!trimmed || trimmed.startsWith('#') || /^[a-zA-Z][\w -]*:\s/.test(trimmed)) {
       continue;
     }
 
@@ -48,7 +81,7 @@ function getAtlasImagePaths(atlasFilePath: string): string[] {
     const imagePath = path.isAbsolute(trimmed)
       ? trimmed
       : path.join(atlasDirectory, trimmed);
-    if (fs.existsSync(imagePath)) {
+    if (await fileExists(imagePath)) {
       imagePaths.add(path.normalize(imagePath));
     }
   }
@@ -56,7 +89,7 @@ function getAtlasImagePaths(atlasFilePath: string): string[] {
   return Array.from(imagePaths);
 }
 
-function getLegacyAtlasImagePaths(atlasFilePath: string): string[] {
+async function getLegacyAtlasImagePaths(atlasFilePath: string): Promise<string[]> {
   const atlasDirectory = path.dirname(atlasFilePath);
   const atlasBaseName = path.basename(atlasFilePath, path.extname(atlasFilePath));
   const candidatePaths = new Set<string>();
@@ -66,16 +99,19 @@ function getLegacyAtlasImagePaths(atlasFilePath: string): string[] {
     candidatePaths.add(path.join(atlasDirectory, `${atlasBaseName}.atlas${extension}`));
   });
 
-  return Array.from(candidatePaths).filter((candidate) => fs.existsSync(candidate));
+  const existingPaths = await Promise.all(
+    Array.from(candidatePaths).map(async (candidate) => (await fileExists(candidate) ? candidate : undefined))
+  );
+  return existingPaths.filter((candidate): candidate is string => candidate !== undefined);
 }
 
-function resolveAtlasImagePaths(atlasFilePath: string): string[] {
-  const referencedPaths = getAtlasImagePaths(atlasFilePath);
+async function resolveAtlasImagePaths(atlasFilePath: string, atlasContent: string): Promise<string[]> {
+  const referencedPaths = await getAtlasImagePaths(atlasFilePath, atlasContent);
   return referencedPaths.length ? referencedPaths : getLegacyAtlasImagePaths(atlasFilePath);
 }
 
-function resolveInitialAnimation(jsonFilePath: string): string | undefined {
-  const skeletonData = JSON.parse(fs.readFileSync(jsonFilePath, 'utf8')) as {
+function resolveInitialAnimation(jsonContent: string): string | undefined {
+  const skeletonData = JSON.parse(jsonContent) as {
     animations?: Record<string, Record<string, unknown>>;
   };
 
@@ -84,7 +120,10 @@ function resolveInitialAnimation(jsonFilePath: string): string | undefined {
 }
 
 async function resolveSpineAssetsFromJson(jsonFilePath: string): Promise<SpineAssetBundle | undefined> {
-  const atlasCandidates = getCandidateAtlasFiles(jsonFilePath);
+  const [atlasCandidates, jsonContent] = await Promise.all([
+    getCandidateAtlasFiles(jsonFilePath),
+    fs.promises.readFile(jsonFilePath, 'utf8'),
+  ]);
 
   if (!atlasCandidates.length) {
     return undefined;
@@ -104,7 +143,8 @@ async function resolveSpineAssetsFromJson(jsonFilePath: string): Promise<SpineAs
     return undefined;
   }
 
-  const imageFilePaths = resolveAtlasImagePaths(atlasFilePath);
+  const atlasContent = await fs.promises.readFile(atlasFilePath, 'utf8');
+  const imageFilePaths = await resolveAtlasImagePaths(atlasFilePath, atlasContent);
   if (!imageFilePaths.length) {
     return undefined;
   }
@@ -113,14 +153,14 @@ async function resolveSpineAssetsFromJson(jsonFilePath: string): Promise<SpineAs
     jsonFilePath,
     atlasFilePath,
     imageFilePaths,
-    initialAnimation: resolveInitialAnimation(jsonFilePath),
+    initialAnimation: resolveInitialAnimation(jsonContent),
   };
 }
 
 async function resolveJsonPathForAtlas(atlasFilePath: string): Promise<string | undefined> {
   const directory = path.dirname(atlasFilePath);
   const atlasBaseName = path.basename(atlasFilePath, path.extname(atlasFilePath));
-  const entries = fs.existsSync(directory) ? fs.readdirSync(directory) : [];
+  const entries = await getDirectoryEntries(directory);
   const exactJsonEntry = entries.find((entry) => entry.toLowerCase() === `${atlasBaseName.toLowerCase()}.json`);
 
   if (exactJsonEntry) {
@@ -170,51 +210,88 @@ async function openSpinePlayer(uri?: vscode.Uri) {
     return;
   }
 
-  const ext = path.extname(selectedUri.fsPath).toLowerCase();
-  const jsonFilePath = ext === '.atlas'
-    ? await resolveJsonPathForAtlas(selectedUri.fsPath)
-    : selectedUri.fsPath;
-
-  if (!jsonFilePath || !fs.existsSync(jsonFilePath)) {
-    vscode.window.showErrorMessage('Selected Spine file does not contain an animation JSON.');
-    console.error('Selected Spine file does not contain an animation JSON.');
-    return;
-  }
-
-  const assetBundle = ext === '.atlas'
-    ? {
-        jsonFilePath: jsonFilePath,
-        atlasFilePath: selectedUri.fsPath,
-        imageFilePaths: resolveAtlasImagePaths(selectedUri.fsPath),
-        initialAnimation: resolveInitialAnimation(jsonFilePath),
-      }
-    : await resolveSpineAssetsFromJson(jsonFilePath);
-
-  if (!assetBundle || !fs.existsSync(assetBundle.jsonFilePath) || !fs.existsSync(assetBundle.atlasFilePath) || !assetBundle.imageFilePaths.length) {
-    vscode.window.showErrorMessage('No matching .atlas file or image could be resolved for the selected Spine JSON.');
-    console.error('No matching .atlas file or image could be resolved for the selected Spine JSON.');
-    return;
-  }
-
-  currentPanel = vscode.window.createWebviewPanel(
+  const requestId = ++openRequestSequence;
+  currentPanel?.dispose();
+  const panel = vscode.window.createWebviewPanel(
     'spinePlayer',
     'Spine Player',
     vscode.ViewColumn.One,
     {
       enableScripts: true,
-      localResourceRoots: Array.from(new Set([
-        path.dirname(assetBundle.atlasFilePath),
-        ...assetBundle.imageFilePaths.map((imagePath) => path.dirname(imagePath)),
-      ])).map((directory) => vscode.Uri.file(directory))
+      localResourceRoots: []
     }
   );
+  let disposed = false;
+  panel.onDidDispose(() => {
+    disposed = true;
+    if (currentPanel === panel) {
+      currentPanel = undefined;
+    }
+  });
+  currentPanel = panel;
+  const isActive = () => !disposed && requestId === openRequestSequence;
 
-  currentPanel.webview.html = getWebviewContent(
-    assetBundle.atlasFilePath,
-    assetBundle.jsonFilePath,
-    assetBundle.initialAnimation,
-    currentPanel.webview
-  );
+  panel.webview.html = '<!DOCTYPE html><html><body style="background:#1e1e1e;color:#ccc;font-family:sans-serif;padding:1rem">Loading Spine assets…</body></html>';
+
+  try {
+    const ext = path.extname(selectedUri.fsPath).toLowerCase();
+    const jsonFilePath = ext === '.atlas'
+      ? await resolveJsonPathForAtlas(selectedUri.fsPath)
+      : selectedUri.fsPath;
+
+    if (!isActive()) {
+      return;
+    }
+
+    if (!jsonFilePath || !(await fileExists(jsonFilePath))) {
+      throw new Error('Selected Spine file does not contain an animation JSON.');
+    }
+
+    const resolvedBundle = ext === '.atlas'
+      ? await (async () => {
+          const jsonContent = await fs.promises.readFile(jsonFilePath, 'utf8');
+          const atlasContent = await fs.promises.readFile(selectedUri.fsPath, 'utf8');
+          return {
+            jsonFilePath,
+            atlasFilePath: selectedUri.fsPath,
+            imageFilePaths: await resolveAtlasImagePaths(selectedUri.fsPath, atlasContent),
+            initialAnimation: resolveInitialAnimation(jsonContent),
+          };
+        })()
+      : await resolveSpineAssetsFromJson(jsonFilePath);
+
+    if (!resolvedBundle || !(await fileExists(resolvedBundle.atlasFilePath)) || !resolvedBundle.imageFilePaths.length) {
+      throw new Error('No matching .atlas file or image could be resolved for the selected Spine JSON.');
+    }
+
+    if (!isActive()) {
+      return;
+    }
+
+    panel.webview.options = {
+      enableScripts: true,
+      localResourceRoots: Array.from(new Set([
+        path.dirname(resolvedBundle.jsonFilePath),
+        path.dirname(resolvedBundle.atlasFilePath),
+        ...resolvedBundle.imageFilePaths.map((imagePath) => path.dirname(imagePath)),
+      ])).map((directory) => vscode.Uri.file(directory))
+    };
+    panel.webview.html = getWebviewContent(
+      resolvedBundle.atlasFilePath,
+      resolvedBundle.jsonFilePath,
+      resolvedBundle.initialAnimation,
+      panel.webview
+    );
+  } catch (error) {
+    if (!isActive()) {
+      return;
+    }
+
+    const message = error instanceof Error ? error.message : 'Unable to resolve Spine assets.';
+    panel.webview.html = `<!DOCTYPE html><html><body style="background:#1e1e1e;color:#f48771;font-family:sans-serif;padding:1rem">${message}</body></html>`;
+    vscode.window.showErrorMessage(message);
+    console.error(message, error);
+  }
 }
 
 export function activate(context: vscode.ExtensionContext) {
