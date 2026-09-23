@@ -4,6 +4,8 @@ import * as path from 'path';
 import { getWebviewContent } from './webviewContent';
 
 const directoryEntriesCache = new Map<string, Promise<string[]>>();
+let currentPanel: vscode.WebviewPanel | undefined;
+let openRequestSequence = 0;
 
 type SpineAssetBundle = {
   jsonFilePath: string;
@@ -67,7 +69,7 @@ async function getAtlasImagePaths(atlasFilePath: string, atlasContent: string): 
   for (const line of atlasContent.split(/\r?\n/)) {
     const trimmed = line.trim();
 
-    if (!trimmed || trimmed.startsWith('#') || trimmed.includes(':')) {
+    if (!trimmed || trimmed.startsWith('#') || /^[a-zA-Z][\w -]*:\s/.test(trimmed)) {
       continue;
     }
 
@@ -208,6 +210,8 @@ async function openSpinePlayer(uri?: vscode.Uri) {
     return;
   }
 
+  const requestId = ++openRequestSequence;
+  currentPanel?.dispose();
   const panel = vscode.window.createWebviewPanel(
     'spinePlayer',
     'Spine Player',
@@ -220,7 +224,12 @@ async function openSpinePlayer(uri?: vscode.Uri) {
   let disposed = false;
   panel.onDidDispose(() => {
     disposed = true;
+    if (currentPanel === panel) {
+      currentPanel = undefined;
+    }
   });
+  currentPanel = panel;
+  const isActive = () => !disposed && requestId === openRequestSequence;
 
   panel.webview.html = '<!DOCTYPE html><html><body style="background:#1e1e1e;color:#ccc;font-family:sans-serif;padding:1rem">Loading Spine assets…</body></html>';
 
@@ -229,6 +238,10 @@ async function openSpinePlayer(uri?: vscode.Uri) {
     const jsonFilePath = ext === '.atlas'
       ? await resolveJsonPathForAtlas(selectedUri.fsPath)
       : selectedUri.fsPath;
+
+    if (!isActive()) {
+      return;
+    }
 
     if (!jsonFilePath || !(await fileExists(jsonFilePath))) {
       throw new Error('Selected Spine file does not contain an animation JSON.');
@@ -251,13 +264,14 @@ async function openSpinePlayer(uri?: vscode.Uri) {
       throw new Error('No matching .atlas file or image could be resolved for the selected Spine JSON.');
     }
 
-    if (disposed) {
+    if (!isActive()) {
       return;
     }
 
     panel.webview.options = {
       enableScripts: true,
       localResourceRoots: Array.from(new Set([
+        path.dirname(resolvedBundle.jsonFilePath),
         path.dirname(resolvedBundle.atlasFilePath),
         ...resolvedBundle.imageFilePaths.map((imagePath) => path.dirname(imagePath)),
       ])).map((directory) => vscode.Uri.file(directory))
@@ -269,7 +283,7 @@ async function openSpinePlayer(uri?: vscode.Uri) {
       panel.webview
     );
   } catch (error) {
-    if (disposed) {
+    if (!isActive()) {
       return;
     }
 
