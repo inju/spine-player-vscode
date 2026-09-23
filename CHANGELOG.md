@@ -20,6 +20,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Removed an invalid placeholder Explorer menu command that caused VS Code manifest warnings.
 
+## [1.2.0] - 2026-09-23
+
+### Added
+
+- Full shared-atlas support, including multi-page PNG and WebP texture atlases.
+
+### Changed
+
+- Spine JSON files are now the primary activation point, while `.atlas` activation remains compatible.
+- Added dynamic atlas selection and atlas-driven texture page resolution.
+
 ## [1.1.0] - 2026-09-23
 
 ### Added
