@@ -31,6 +31,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Spine JSON files are now the primary activation point, while `.atlas` activation remains compatible.
 - Added dynamic atlas selection and atlas-driven texture page resolution.
 
+## [1.2.1] - 2026-09-23
+
+### Fixed
+
+- Made the Marketplace icon's rounded outer corners transparent instead of white.
+
 ## [1.1.0] - 2026-09-23
 
 ### Added
