@@ -13,16 +13,18 @@ type SpineAssetBundle = {
 
 function getCandidateAtlasFiles(jsonFilePath: string): string[] {
   const directory = path.dirname(jsonFilePath);
-  const fileName = path.basename(jsonFilePath, '.json');
-  const exactAtlasPath = path.join(directory, `${fileName}.atlas`);
-  const files = fs.existsSync(directory)
-    ? fs.readdirSync(directory)
-        .filter((entry) => entry.toLowerCase().endsWith('.atlas'))
-        .map((entry) => path.join(directory, entry))
-        .sort()
-    : [];
+  const fileName = path.basename(jsonFilePath, path.extname(jsonFilePath));
+  const entries = fs.existsSync(directory) ? fs.readdirSync(directory) : [];
+  const exactAtlasEntry = entries.find((entry) => entry.toLowerCase() === `${fileName.toLowerCase()}.atlas`);
 
-  return Array.from(new Set([...(fs.existsSync(exactAtlasPath) ? [exactAtlasPath] : []), ...files.filter((file) => file !== exactAtlasPath)]));
+  if (exactAtlasEntry) {
+    return [path.join(directory, exactAtlasEntry)];
+  }
+
+  return entries
+    .filter((entry) => entry.toLowerCase().endsWith('.atlas'))
+    .map((entry) => path.join(directory, entry))
+    .sort();
 }
 
 function getAtlasImagePaths(atlasFilePath: string): string[] {
