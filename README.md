@@ -9,6 +9,7 @@ The Spine Player VSCode extension allows you to preview and interact with Spine 
 - Support shared atlas files used by multiple animation JSON files
 - Support atlas image textures in both `.png` and `.webp` formats
 - Preview the animation in a VSCode webview panel with the standard Spine player controls
+- A custom neon helix icon for quick recognition in the Extensions view
 
 ## Usage
 
@@ -19,7 +20,7 @@ The Spine Player VSCode extension allows you to preview and interact with Spine 
 2. **Use a shared atlas**
    - If several JSON files share one atlas, the extension will prompt you to choose the atlas when multiple matches are available.
 
-3. **Compatiblity**
+3. **Compatibility**
    - Existing `.atlas`-based workflows still work as a fallback for older project layouts.
 
 4. **Interact with the animation**
