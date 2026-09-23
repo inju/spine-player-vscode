@@ -2,7 +2,7 @@
   "name": "spine-player-vscode",
   "displayName": "Spine Player for VSCode",
   "description": "Play back Spine animations inside VSCode",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "publisher": "inju",
   "icon": "assets/icon.png",
   "author": {

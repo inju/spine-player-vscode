@@ -51,6 +51,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Start playback with the first animation that contains timeline data.
 - Fall back to setup pose when no animation contains timelines.
 
+## [1.2.4] - 2026-09-23
+
+### Fixed
+
+- Pass the first timeline animation to Spine Player before initialization so automatic viewport calculation does not run against an empty animation.
+- When opening an atlas without a same-name JSON file, prompt for an available skeleton JSON file.
+
 ## [1.1.0] - 2026-09-23
 
 ### Added

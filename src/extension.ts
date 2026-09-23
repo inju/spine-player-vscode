@@ -9,6 +9,7 @@ type SpineAssetBundle = {
   jsonFilePath: string;
   atlasFilePath: string;
   imageFilePaths: string[];
+  initialAnimation?: string;
 };
 
 function getCandidateAtlasFiles(jsonFilePath: string): string[] {
@@ -73,6 +74,15 @@ function resolveAtlasImagePaths(atlasFilePath: string): string[] {
   return referencedPaths.length ? referencedPaths : getLegacyAtlasImagePaths(atlasFilePath);
 }
 
+function resolveInitialAnimation(jsonFilePath: string): string | undefined {
+  const skeletonData = JSON.parse(fs.readFileSync(jsonFilePath, 'utf8')) as {
+    animations?: Record<string, Record<string, unknown>>;
+  };
+
+  return Object.entries(skeletonData.animations ?? {})
+    .find(([, animation]) => Object.keys(animation).length > 0)?.[0];
+}
+
 async function resolveSpineAssetsFromJson(jsonFilePath: string): Promise<SpineAssetBundle | undefined> {
   const atlasCandidates = getCandidateAtlasFiles(jsonFilePath);
 
@@ -103,7 +113,44 @@ async function resolveSpineAssetsFromJson(jsonFilePath: string): Promise<SpineAs
     jsonFilePath,
     atlasFilePath,
     imageFilePaths,
+    initialAnimation: resolveInitialAnimation(jsonFilePath),
   };
+}
+
+async function resolveJsonPathForAtlas(atlasFilePath: string): Promise<string | undefined> {
+  const directory = path.dirname(atlasFilePath);
+  const atlasBaseName = path.basename(atlasFilePath, path.extname(atlasFilePath));
+  const entries = fs.existsSync(directory) ? fs.readdirSync(directory) : [];
+  const exactJsonEntry = entries.find((entry) => entry.toLowerCase() === `${atlasBaseName.toLowerCase()}.json`);
+
+  if (exactJsonEntry) {
+    return path.join(directory, exactJsonEntry);
+  }
+
+  const jsonCandidates = entries
+    .filter((entry) => entry.toLowerCase().endsWith('.json'))
+    .sort()
+    .map((entry) => path.join(directory, entry));
+
+  if (jsonCandidates.length === 1) {
+    return jsonCandidates[0];
+  }
+
+  if (!jsonCandidates.length) {
+    return undefined;
+  }
+
+  return vscode.window.showQuickPick(
+    jsonCandidates.map((jsonPath) => ({
+      label: path.basename(jsonPath),
+      description: path.dirname(jsonPath),
+      detail: jsonPath,
+    })),
+    {
+      placeHolder: 'Select the skeleton JSON file to use with this atlas',
+      ignoreFocusOut: true,
+    }
+  ).then((selection) => selection?.detail);
 }
 
 async function openSpinePlayer(uri?: vscode.Uri) {
@@ -125,10 +172,10 @@ async function openSpinePlayer(uri?: vscode.Uri) {
 
   const ext = path.extname(selectedUri.fsPath).toLowerCase();
   const jsonFilePath = ext === '.atlas'
-    ? selectedUri.fsPath.replace(/\.atlas$/i, '.json')
+    ? await resolveJsonPathForAtlas(selectedUri.fsPath)
     : selectedUri.fsPath;
 
-  if (!fs.existsSync(jsonFilePath) && ext !== '.json') {
+  if (!jsonFilePath || !fs.existsSync(jsonFilePath)) {
     vscode.window.showErrorMessage('Selected Spine file does not contain an animation JSON.');
     console.error('Selected Spine file does not contain an animation JSON.');
     return;
@@ -139,6 +186,7 @@ async function openSpinePlayer(uri?: vscode.Uri) {
         jsonFilePath: jsonFilePath,
         atlasFilePath: selectedUri.fsPath,
         imageFilePaths: resolveAtlasImagePaths(selectedUri.fsPath),
+        initialAnimation: resolveInitialAnimation(jsonFilePath),
       }
     : await resolveSpineAssetsFromJson(jsonFilePath);
 
@@ -164,6 +212,7 @@ async function openSpinePlayer(uri?: vscode.Uri) {
   currentPanel.webview.html = getWebviewContent(
     assetBundle.atlasFilePath,
     assetBundle.jsonFilePath,
+    assetBundle.initialAnimation,
     currentPanel.webview
   );
 }
