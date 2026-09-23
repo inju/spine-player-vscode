@@ -8,7 +8,7 @@ let currentPanel: vscode.WebviewPanel | undefined = undefined;
 type SpineAssetBundle = {
   jsonFilePath: string;
   atlasFilePath: string;
-  imageFilePath: string;
+  imageFilePaths: string[];
 };
 
 function getCandidateAtlasFiles(jsonFilePath: string): string[] {
@@ -25,55 +25,50 @@ function getCandidateAtlasFiles(jsonFilePath: string): string[] {
   return Array.from(new Set([...(fs.existsSync(exactAtlasPath) ? [exactAtlasPath] : []), ...files.filter((file) => file !== exactAtlasPath)]));
 }
 
-function parseAtlasImageReference(atlasFilePath: string): string | undefined {
+function getAtlasImagePaths(atlasFilePath: string): string[] {
   const atlasContent = fs.readFileSync(atlasFilePath, 'utf8');
-  const lines = atlasContent.split(/\r?\n/);
+  const atlasDirectory = path.dirname(atlasFilePath);
+  const imagePaths = new Set<string>();
 
-  for (const line of lines) {
+  for (const line of atlasContent.split(/\r?\n/)) {
     const trimmed = line.trim();
 
-    if (!trimmed || trimmed.startsWith('#')) {
+    if (!trimmed || trimmed.startsWith('#') || trimmed.includes(':')) {
       continue;
     }
 
-    if (trimmed.includes(':')) {
+    const extension = path.extname(trimmed).toLowerCase();
+    if (extension !== '.png' && extension !== '.webp') {
       continue;
     }
 
-    if (!trimmed.includes(' ') && !trimmed.includes('\t')) {
-      return trimmed;
+    const imagePath = path.isAbsolute(trimmed)
+      ? trimmed
+      : path.join(atlasDirectory, trimmed);
+    if (fs.existsSync(imagePath)) {
+      imagePaths.add(path.normalize(imagePath));
     }
   }
 
-  return undefined;
+  return Array.from(imagePaths);
 }
 
-function resolveAtlasImagePath(atlasFilePath: string): string | undefined {
+function getLegacyAtlasImagePaths(atlasFilePath: string): string[] {
   const atlasDirectory = path.dirname(atlasFilePath);
   const atlasBaseName = path.basename(atlasFilePath, path.extname(atlasFilePath));
-
-  const directAtlasReference = parseAtlasImageReference(atlasFilePath);
   const candidatePaths = new Set<string>();
-
-  if (directAtlasReference) {
-    const directPath = path.isAbsolute(directAtlasReference)
-      ? directAtlasReference
-      : path.join(atlasDirectory, directAtlasReference);
-    candidatePaths.add(directPath);
-  }
 
   ['.png', '.webp'].forEach((extension) => {
     candidatePaths.add(path.join(atlasDirectory, `${atlasBaseName}${extension}`));
     candidatePaths.add(path.join(atlasDirectory, `${atlasBaseName}.atlas${extension}`));
   });
 
-  for (const candidate of Array.from(candidatePaths)) {
-    if (fs.existsSync(candidate) && (candidate.toLowerCase().endsWith('.png') || candidate.toLowerCase().endsWith('.webp'))) {
-      return candidate;
-    }
-  }
+  return Array.from(candidatePaths).filter((candidate) => fs.existsSync(candidate));
+}
 
-  return undefined;
+function resolveAtlasImagePaths(atlasFilePath: string): string[] {
+  const referencedPaths = getAtlasImagePaths(atlasFilePath);
+  return referencedPaths.length ? referencedPaths : getLegacyAtlasImagePaths(atlasFilePath);
 }
 
 async function resolveSpineAssetsFromJson(jsonFilePath: string): Promise<SpineAssetBundle | undefined> {
@@ -97,15 +92,15 @@ async function resolveSpineAssetsFromJson(jsonFilePath: string): Promise<SpineAs
     return undefined;
   }
 
-  const imageFilePath = resolveAtlasImagePath(atlasFilePath);
-  if (!imageFilePath) {
+  const imageFilePaths = resolveAtlasImagePaths(atlasFilePath);
+  if (!imageFilePaths.length) {
     return undefined;
   }
 
   return {
     jsonFilePath,
     atlasFilePath,
-    imageFilePath,
+    imageFilePaths,
   };
 }
 
@@ -141,11 +136,11 @@ async function openSpinePlayer(uri?: vscode.Uri) {
     ? {
         jsonFilePath: jsonFilePath,
         atlasFilePath: selectedUri.fsPath,
-        imageFilePath: resolveAtlasImagePath(selectedUri.fsPath) ?? selectedUri.fsPath.replace(/\.atlas$/i, '.png'),
+        imageFilePaths: resolveAtlasImagePaths(selectedUri.fsPath),
       }
     : await resolveSpineAssetsFromJson(jsonFilePath);
 
-  if (!assetBundle || !fs.existsSync(assetBundle.jsonFilePath) || !fs.existsSync(assetBundle.atlasFilePath) || !fs.existsSync(assetBundle.imageFilePath)) {
+  if (!assetBundle || !fs.existsSync(assetBundle.jsonFilePath) || !fs.existsSync(assetBundle.atlasFilePath) || !assetBundle.imageFilePaths.length) {
     vscode.window.showErrorMessage('No matching .atlas file or image could be resolved for the selected Spine JSON.');
     console.error('No matching .atlas file or image could be resolved for the selected Spine JSON.');
     return;
@@ -157,14 +152,16 @@ async function openSpinePlayer(uri?: vscode.Uri) {
     vscode.ViewColumn.One,
     {
       enableScripts: true,
-      localResourceRoots: [vscode.Uri.file(path.dirname(assetBundle.atlasFilePath))]
+      localResourceRoots: Array.from(new Set([
+        path.dirname(assetBundle.atlasFilePath),
+        ...assetBundle.imageFilePaths.map((imagePath) => path.dirname(imagePath)),
+      ])).map((directory) => vscode.Uri.file(directory))
     }
   );
 
   currentPanel.webview.html = getWebviewContent(
     assetBundle.atlasFilePath,
     assetBundle.jsonFilePath,
-    assetBundle.imageFilePath,
     currentPanel.webview
   );
 }

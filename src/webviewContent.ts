@@ -1,9 +1,8 @@
 import * as vscode from 'vscode';
 
-export function getWebviewContent(atlasFilePath: string, jsonFilePath: string, imageFilePath: string, webview: vscode.Webview): string {
+export function getWebviewContent(atlasFilePath: string, jsonFilePath: string, webview: vscode.Webview): string {
   const atlasBlobUrl = webview.asWebviewUri(vscode.Uri.file(atlasFilePath)).toString();
   const jsonBlobUrl = webview.asWebviewUri(vscode.Uri.file(jsonFilePath)).toString();
-  const imageBlobUrl = webview.asWebviewUri(vscode.Uri.file(imageFilePath)).toString();
 
   const csp = `
     default-src 'none';
@@ -63,10 +62,6 @@ export function getWebviewContent(atlasFilePath: string, jsonFilePath: string, i
                   console.error('Error initializing Spine Player:', error);
                 }
               };
-
-              if ('${imageBlobUrl}') {
-                config.imageUrl = '${imageBlobUrl}';
-              }
 
               const player = new spine.SpinePlayer('spine-container', config);
             } catch (error) {
