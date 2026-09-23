@@ -37,6 +37,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Made the Marketplace icon's rounded outer corners transparent instead of white.
 
+## [1.2.2] - 2026-09-23
+
+### Fixed
+
+- Automatically select an atlas with the same base name as the selected JSON file.
+- Show atlas selection only when no same-name atlas exists.
+
 ## [1.1.0] - 2026-09-23
 
 ### Added
