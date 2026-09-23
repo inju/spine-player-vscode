@@ -44,6 +44,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Automatically select an atlas with the same base name as the selected JSON file.
 - Show atlas selection only when no same-name atlas exists.
 
+## [1.2.3] - 2026-09-23
+
+### Fixed
+
+- Start playback with the first animation that contains timeline data.
+- Fall back to setup pose when no animation contains timelines.
+
 ## [1.1.0] - 2026-09-23
 
 ### Added

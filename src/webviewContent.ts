@@ -51,10 +51,12 @@ export function getWebviewContent(atlasFilePath: string, jsonFilePath: string, w
                 fitToCanvas: true,
                 success: function (player) {
                   if (player.skeletonData) {
-                    if (player.skeletonData.animations.length > 0) {
-                      const animations = player.skeletonData.animations.map(anim => anim.name);
-                      const animationName = animations.includes('animation') ? 'animation' : animations[0];
-                      player.state.setAnimation(0, animationName, true);
+                    const animation = player.skeletonData.animations.find(anim =>
+                      Array.isArray(anim.timelines) && anim.timelines.length > 0
+                    );
+
+                    if (animation) {
+                      player.state.setAnimation(0, animation.name, true);
                     }
                   }
                 },
