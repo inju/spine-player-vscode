@@ -2,7 +2,7 @@
   "name": "spine-player-vscode",
   "displayName": "Spine Player for VSCode",
   "description": "Play back Spine animations inside VSCode",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "publisher": "inju",
   "icon": "assets/icon.png",
   "author": {
@@ -38,11 +38,6 @@
           "command": "inju.spine-player-vscode.playSpineAnimation",
           "when": "resourceExtname == .atlas",
           "group": "navigation@2"
-        },
-        {
-          "command": "-",
-          "when": "resourceExtname == .atlas",
-          "group": "navigation@3"
         }
       ]
     }
