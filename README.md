@@ -1,42 +1,49 @@
 # Spine Player VSCode Extension
 
-The Spine Player VSCode extension allows you to embed and play Spine animations directly within Visual Studio Code. This extension is useful for game developers and animators who want to preview and interact with their Spine animations without leaving the editor.
+The Spine Player VSCode extension allows you to preview and interact with Spine animations directly inside Visual Studio Code. It is designed for game developers and animators who want to inspect skeletons, switch animations, and validate asset resolution without leaving their editor.
 
 ## Features
 
-- **Embed Spine Animations**: Display Spine animations directly in a VSCode webview.
+- Open Spine animations directly from a `json` skeleton file
+- Resolve the matching atlas dynamically instead of relying on fixed filename assumptions
+- Support shared atlas files used by multiple animation JSON files
+- Support atlas image textures in both `.png` and `.webp` formats
+- Preview the animation in a VSCode webview panel with the standard Spine player controls
 
 ## Usage
 
-1. **Click on an .atlas file in Explorer**
-   - Ensure the same folder has corresponding .json and .png files.
+1. **Open a Spine JSON file in Explorer**
+   - Right-click the `.json` file and choose `Play Spine Animation`.
+   - The extension will locate the matching atlas in the same folder or nearby files and resolve the texture automatically.
 
-2. **Run Spine Animation Command**
-   - Right click on the .atlas file and select \`Play Spine Animation\`
+2. **Use a shared atlas**
+   - If several JSON files share one atlas, the extension will prompt you to choose the atlas when multiple matches are available.
 
-3. **Interact with the Animation**
-   - The Spine Player will display your animation in a webview panel.
-   - Use the player controls to select an animation and control it.
+3. **Compatiblity**
+   - Existing `.atlas`-based workflows still work as a fallback for older project layouts.
+
+4. **Interact with the animation**
+   - The Spine Player loads in a webview and plays the first available animation by default.
 
 ## Development/debugging
 
 1. **Clone the Repository**
-   \`\`\`bash
+   ```bash
    git clone <repository-url>
-   \`\`\`
+   ```
 2. **Install Dependencies**
-   \`\`\`bash
+   ```bash
    cd <repository-directory>
    npm install
-   \`\`\`
+   ```
 3. **Compile the Extension**
-   \`\`\`bash
+   ```bash
    npm run compile
-   \`\`\`
+   ```
 4. **Launch the Extension**
    - Open "Run & Debug"
    - Choose "Run Extension"
-   - Press \`F5\` to open a new VSCode window with the extension loaded.
+   - Press `F5` to open a new VSCode window with the extension loaded.
 
 ## Contribution
 
@@ -45,21 +52,21 @@ The Spine Player VSCode extension allows you to embed and play Spine animations 
 
 2. **Create a Branch**
    - Create a new branch for your feature or bugfix.
-     \`\`\`bash
-     git checkout -b feature-name
-     \`\`\`
+   ```bash
+   git checkout -b feature-name
+   ```
 
 3. **Make Your Changes**
    - Make your changes and commit them with a meaningful commit message.
-     \`\`\`bash
-     git commit -m "Add new feature"
-     \`\`\`
+   ```bash
+   git commit -m "Add new feature"
+   ```
 
 4. **Push Changes**
    - Push your changes to your fork.
-     \`\`\`bash
-     git push origin feature-name
-     \`\`\`
+   ```bash
+   git push origin feature-name
+   ```
 
 5. **Create a Pull Request**
    - Create a pull request from your fork's branch to the main repository.
@@ -70,4 +77,4 @@ This project is licensed under the MIT License.
 
 ## Contributors
 
-ChatGPT create skeleton of plugin.
+ChatGPT created the initial plugin skeleton, and the current extension includes shared-atlas support and PNG/WebP texture handling.

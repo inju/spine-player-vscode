@@ -2,7 +2,7 @@
   "name": "spine-player-vscode",
   "displayName": "Spine Player for VSCode",
   "description": "Play back Spine animations inside VSCode",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "publisher": "inju",
   "author": {
     "name": "Indrek Juhani"
@@ -15,7 +15,9 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:inju.spine-player-vscode.playSpineAnimation"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
@@ -28,13 +30,18 @@
       "explorer/context": [
         {
           "command": "inju.spine-player-vscode.playSpineAnimation",
-          "when": "resourceExtname == .atlas",
+          "when": "resourceExtname == .json",
           "group": "navigation@1"
+        },
+        {
+          "command": "inju.spine-player-vscode.playSpineAnimation",
+          "when": "resourceExtname == .atlas",
+          "group": "navigation@2"
         },
         {
           "command": "-",
           "when": "resourceExtname == .atlas",
-          "group": "navigation@2"
+          "group": "navigation@3"
         }
       ]
     }
